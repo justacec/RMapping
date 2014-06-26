@@ -38,26 +38,74 @@ londelt = (2.0*360.0) / (2^z)
 latdelt = (2.0*180.0) / (2^z)
 lonsteps = seq(min(limit_longitude), max(limit_longitude), by = londelt)
 latsteps = seq(min(limit_latitude), max(limit_latitude), by = latdelt)
-mymaps = list()
+tiles = list()
 for(i in 1:(length(lonsteps)-1)) {
   for(j in 1:(length(latsteps)-1)) {
     cat(sprintf('i = %i\tj = %i\n', i, j))
+    lat = mean(c(latsteps[j], latsteps[j+1]))
+    lon = mean(c(lonsteps[i], lonsteps[i+1]))
     bb = c(lonsteps[i], latsteps[j], lonsteps[i+1], latsteps[j+1])
     cat(bb)
     cat('\n')
     cat('\n')
-    ret = get_map(location = bb, zoom = z, maptype = 'satellite', source = 'google', scale = 2)
-    mymaps[[i + ((j-1)*(length(latsteps)-1))]] = ret
+    ret = get_map(location = c(lon, lat), zoom = z, maptype = 'satellite', source = 'google', scale = 1, urlonly = FALSE)
+#    ret = get_map(location = bb, zoom = z, maptype = 'satellite', source = 'google', scale = 1)
+    tiles[[i + ((j-1)*(length(latsteps)-1))]] = ret
   }
 }
 
-g = rbind(mymaps[[1]], mymaps[[2]], mymaps[[3]])
-class(g) = c('ggmap', 'raster')
-attr(g, 'bb') = data.frame(ll.lat = attr(mymaps[[1]], 'bb')$ll.lat, ll.lon = attr(mymaps[[1]], 'bb')$ll.lon, ur.lat = attr(mymaps[[3]], 'bb')$ur.lat, ur.lon = attr(mymaps[[3]], 'bb')$ur.lon)
-t = ggmap(g)
-t
+
+# Strip the copywright ----------------------------------------------------
+
+center = c(lon, lat)
+zoom = 19
+size = c(640, 640)
+size = size * 2
+ll <- XY2LatLon(
+  list(lat = center[2], lon = center[1], zoom = zoom),
+  -size[1]/2 + 0.5,
+  -size[2]/2 - 0.5
+)
+ll
+
+# Break 1 -----------------------------------------------------------------
+
+# determine bounding box
+bbs <- ldply(tiles, function(x) attr(x, "bb"))    
+
+bigbb <- data.frame(
+  ll.lat = min(bbs$ll.lat),
+  ll.lon = min(bbs$ll.lon),
+  ur.lat = max(bbs$ur.lat),
+  ur.lon = max(bbs$ur.lon)
+)
+
+# determine positions of tile in slate (aggregate)  
+order <- as.numeric( arrange(cbind(.id = row.names(bbs), bbs), desc(ll.lat), ll.lon)$.id )
+tiles <- tiles[order]
+tiles <- lapply(tiles, as.matrix) # essential for cbind/rbind to work properly!
+
+# split tiles, then squeeze together from top and bottom
+# and then squeeze together from left and right
+nrows <- length( unique(bbs$ll.lat) )
+ncols <- length( unique(bbs$ll.lon) )    
+tiles <- split(tiles, rep(1:nrows, each = ncols))
+tiles <- lapply(tiles, function(x) Reduce(cbind, x))
+tiles <- Reduce(rbind, tiles)
+
+tiles <- as.raster(tiles)
+class(tiles) <- c("ggmap", "raster")
+attr(tiles, "bb") <- bigbb
+
+tiles
+ggmap(tiles)
+
+# Bkear 3 -----------------------------------------------------------------
+
+
 
 t2 = ggmap(mymaps[[1]])
+t2
 b = as.raster(g)
 
 dim(g)
