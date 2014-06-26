@@ -17,6 +17,61 @@ limit_longitude = c(s2, s2+0.0004)
 limit_boundingbox = c(min(limit_longitude), min(limit_latitude), max(limit_longitude), max(limit_latitude))
 
 
+
+# Get The Tiles -----------------------------------------------------------
+
+z = 19
+londelt = (2.0*360.0) / (2^z)
+latdelt = (2.0*180.0) / (2^z)
+s1 = 37.84  # 37.84
+s2 = -76.480   # -75.480
+s1 = 38.889468
+s2 = -77.03524
+
+limit_latitude = c(s1, s1 + 1 * latdelt)
+limit_longitude = c(s2, s2 + 3 * londelt)
+limit_boundingbox = c(min(limit_longitude), min(limit_latitude), max(limit_longitude), max(limit_latitude))
+
+trim = 0
+z = 19
+londelt = (2.0*360.0) / (2^z)
+latdelt = (2.0*180.0) / (2^z)
+lonsteps = seq(min(limit_longitude), max(limit_longitude), by = londelt)
+latsteps = seq(min(limit_latitude), max(limit_latitude), by = latdelt)
+mymaps = list()
+for(i in 1:(length(lonsteps)-1)) {
+  for(j in 1:(length(latsteps)-1)) {
+    cat(sprintf('i = %i\tj = %i\n', i, j))
+    bb = c(lonsteps[i], latsteps[j], lonsteps[i+1], latsteps[j+1])
+    cat(bb)
+    cat('\n')
+    cat('\n')
+    ret = get_map(location = bb, zoom = z, maptype = 'satellite', source = 'google', scale = 2)
+    mymaps[[i + ((j-1)*(length(latsteps)-1))]] = ret
+  }
+}
+
+g = rbind(mymaps[[1]], mymaps[[2]], mymaps[[3]])
+class(g) = c('ggmap', 'raster')
+attr(g, 'bb') = data.frame(ll.lat = attr(mymaps[[1]], 'bb')$ll.lat, ll.lon = attr(mymaps[[1]], 'bb')$ll.lon, ur.lat = attr(mymaps[[3]], 'bb')$ur.lat, ur.lon = attr(mymaps[[3]], 'bb')$ur.lon)
+t = ggmap(g)
+t
+
+t2 = ggmap(mymaps[[1]])
+b = as.raster(g)
+
+dim(g)
+grid.raster(g)
+
+
+final = mymaps[[1]]
+for(i = 2:length(mymaps)) {
+  
+}
+
+ggmap(mymaps[[2]])
+
+
 # GoogleMaps proj4 String: +proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +k=1.0 +units=m +nadgrids=@null +wktext  +no_defs
 
 # Download the Map data ---------------------------------------------------
@@ -46,7 +101,7 @@ limit_latitude = c(s1, s1+0.0003)
 limit_longitude = c(s2, s2+0.0004)
 limit_boundingbox = c(min(limit_longitude), min(limit_latitude), max(limit_longitude), max(limit_latitude))
 
-ret = get_map(location = limit_boundingbox, zoom = 15, maptype = 'satellite', source = 'google', scale = 2)
+ret = get_map(location = limit_boundingbox, zoom = 19, maptype = 'satellite', source = 'google', scale = 2)
 bb = attr(ret, 'bb')
 cat(sprintf('Lat: %f -> %f\t%f\n', bb$ll.lat, bb$ur.lat, bb$ur.lat - bb$ll.lat))
 cat(sprintf('Lat: %f -> %f\t%f\n', bb$ll.lon, bb$ur.lon, bb$ur.lon - bb$ll.lon))
